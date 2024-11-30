@@ -1,5 +1,22 @@
 {{template "master" .}}
 
 {{define "content"}}
-  <h1>This is a Homepage</h1>
+	<table class="table table-bordered table-hovered">
+		<thead>
+			<th>ID</th>
+			<th>FROM URL</th>
+			<th>TO URL</th>
+			<th>Hit Count</th>
+		</thead>
+		<tbody>
+			{{ range .urls}}
+			<tr>
+				<td>{{.Id}}</td>
+				<td>{{.FromURL}}</td>
+				<td>{{.ToURL}}</td>
+				<td>{{.HitCount}}</td>
+			</tr>
+			{{end}}
+		</tbody>
+	</table>
 {{end}}
