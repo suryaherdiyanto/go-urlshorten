@@ -16,14 +16,20 @@ type URL struct {
 	HitCount int    `db:"hit_count"`
 }
 
-func Flash(ctx *gin.Context, key string, value interface{}) interface{} {
+func Flash(ctx *gin.Context, key string, value interface{}) (string, bool) {
 	session := sessions.Default(ctx)
 
 	if value == nil {
 		session.AddFlash(value, key)
 	}
 
-	return session.Flashes(key)
+	message := session.Flashes(key)
+
+	if message == nil {
+		return "", false
+	}
+
+	return message[0].(string), true
 }
 
 func main() {
