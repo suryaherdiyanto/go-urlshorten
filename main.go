@@ -1,7 +1,17 @@
 package main
 
-import "fmt"
+import (
+	"github.com/gin-gonic/gin"
+)
 
 func main() {
-	fmt.Println("Hello, World!")
+	app := gin.Default()
+
+	app.GET("/", func(ctx *gin.Context) {
+		ctx.JSON(200, gin.H{
+			"message": "Hello, World!",
+		})
+	})
+
+	app.Run(":8000")
 }
