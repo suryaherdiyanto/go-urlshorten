@@ -6,11 +6,10 @@ import (
 
 func main() {
 	app := gin.Default()
+	app.LoadHTMLGlob("./views/*")
 
 	app.GET("/", func(ctx *gin.Context) {
-		ctx.JSON(200, gin.H{
-			"message": "Hello, World!",
-		})
+		ctx.HTML(200, "home.tmpl", gin.H{})
 	})
 
 	app.Run(":8000")
