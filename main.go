@@ -11,6 +11,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/go-urlshorten/database"
 )
 
@@ -19,6 +20,10 @@ type URL struct {
 	FromURL  string `db:"from_url"`
 	ToURL    string `db:"to_url"`
 	HitCount int    `db:"hit_count"`
+}
+
+type FormRequest struct {
+	URL string `form:"url" binding:"required,url"`
 }
 
 func RandString(length int) string {
@@ -36,6 +41,14 @@ func RandString(length int) string {
 
 func Add(i int, num int) int {
 	return i + num
+}
+
+func AppendError(bags map[string][]string, field string, message string) {
+	if _, ok := bags[field]; !ok {
+		bags[field] = []string{message}
+	} else {
+		bags[field] = append(bags[field], message)
+	}
 }
 
 func main() {
@@ -79,13 +92,39 @@ func main() {
 			log.Fatal(err)
 		}
 
-		url := ctx.Request.PostForm["url"]
+		var data FormRequest
+		if err = ctx.ShouldBind(&data); err != nil {
+			errorBags := make(map[string][]string)
+
+			for _, validationErr := range err.(validator.ValidationErrors) {
+				var message string
+
+				switch validationErr.Tag() {
+				case "required":
+					message = "The " + validationErr.Field() + " is required"
+				case "url":
+					message = "The " + validationErr.Field() + " must be a valid URL"
+				default:
+					message = validationErr.Error()
+				}
+
+				AppendError(errorBags, validationErr.Field(), message)
+			}
+			app.LoadHTMLFiles("views/master.tmpl", "views/menu.tmpl", "views/create.tmpl")
+
+			ctx.HTML(400, "create.tmpl", gin.H{
+				"errors": errorBags,
+				"flash":  []string{},
+			})
+			return
+		}
+
 		slug := RandString(6)
 
 		con, cancle := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancle()
 
-		_, err = db.ExecContext(con, "INSERT INTO urls(from_url,to_url) VALUES(?, ?)", "/r/"+slug, url[0])
+		_, err = db.ExecContext(con, "INSERT INTO urls(from_url,to_url) VALUES(?, ?)", "/r/"+slug, data.URL)
 		if err != nil {
 			log.Fatalf("Something went wrong %v \n", err)
 			ctx.Error(err)
