@@ -16,7 +16,7 @@ type URL struct {
 	HitCount int    `db:"hit_count"`
 }
 
-func Flash(ctx *gin.Context, key string, value interface{}) (string, bool) {
+func Flash(ctx *gin.Context, key string, value interface{}) interface{} {
 	session := sessions.Default(ctx)
 
 	if value == nil {
@@ -26,10 +26,10 @@ func Flash(ctx *gin.Context, key string, value interface{}) (string, bool) {
 	message := session.Flashes(key)
 
 	if message == nil {
-		return "", false
+		return nil
 	}
 
-	return message[0].(string), true
+	return message[0].(string)
 }
 
 func main() {
@@ -41,14 +41,18 @@ func main() {
 	store := cookie.NewStore([]byte("examplekey"))
 	app.Use(sessions.Sessions("examplesession", store))
 	db := database.New("root:root@tcp(127.0.0.1)/urlshorten")
-	app.LoadHTMLGlob("./views/*")
 
 	app.GET("/", func(ctx *gin.Context) {
+		app.LoadHTMLFiles("views/master.tmpl", "views/menu.tmpl", "views/home.tmpl")
 		urls := []URL{}
 		db.Select(&urls, "SELECT * FROM urls")
 		ctx.HTML(200, "home.tmpl", gin.H{
 			"urls": &urls,
 		})
+	})
+	app.GET("create", func(ctx *gin.Context) {
+		app.LoadHTMLFiles("views/master.tmpl", "views/menu.tmpl", "views/create.tmpl")
+		ctx.HTML(200, "create.tmpl", gin.H{})
 	})
 
 	app.Run(":8000")

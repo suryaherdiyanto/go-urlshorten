@@ -1,0 +1,13 @@
+{{template "master" .}}
+
+{{define "content"}}
+	<form action="">
+		<div class="mb-3">
+			<label for="url">Enter your URL:</label>
+			<input id="url" type="text" name="url" class="form-control" palceholder="https://example.com">
+		</div>
+		<div class="mb-3">
+			<button class="btn btn-primary">Generate Shorten</button>
+		</div>
+	</form>
+{{end}}
