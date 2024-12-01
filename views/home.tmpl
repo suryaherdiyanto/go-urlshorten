@@ -1,6 +1,11 @@
 {{template "master" .}}
 
 {{define "content"}}
+	{{if gt (len .flash) 1}}
+		<div class="alert alert-success fade show" role="alert">
+			{{index .flash 0}}
+		</div>
+	{{end}}
 	<table class="table table-bordered table-hovered">
 		<thead>
 			<th>ID</th>
