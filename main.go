@@ -1,7 +1,10 @@
 package main
 
 import (
-	"text/template"
+	"context"
+	"log"
+	"math/rand"
+	"time"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -16,27 +19,21 @@ type URL struct {
 	HitCount int    `db:"hit_count"`
 }
 
-func Flash(ctx *gin.Context, key string, value interface{}) interface{} {
-	session := sessions.Default(ctx)
+func RandString(length int) string {
+	charset := []byte("abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	b := make([]byte, length)
 
-	if value == nil {
-		session.AddFlash(value, key)
+	for i := 0; i < length; i++ {
+		rnd := rand.Intn(len(charset))
+		b[i] = charset[int(rnd)]
 	}
 
-	message := session.Flashes(key)
+	return string(b)
 
-	if message == nil {
-		return nil
-	}
-
-	return message[0].(string)
 }
 
 func main() {
 	app := gin.Default()
-	app.SetFuncMap(template.FuncMap{
-		"Flash": Flash,
-	})
 
 	store := cookie.NewStore([]byte("examplekey"))
 	app.Use(sessions.Sessions("examplesession", store))
@@ -44,15 +41,49 @@ func main() {
 
 	app.GET("/", func(ctx *gin.Context) {
 		app.LoadHTMLFiles("views/master.tmpl", "views/menu.tmpl", "views/home.tmpl")
+		session := sessions.Default(ctx)
+		flash := session.Flashes()
+
 		urls := []URL{}
 		db.Select(&urls, "SELECT * FROM urls")
 		ctx.HTML(200, "home.tmpl", gin.H{
-			"urls": &urls,
+			"urls":  &urls,
+			"flash": flash,
 		})
 	})
 	app.GET("create", func(ctx *gin.Context) {
 		app.LoadHTMLFiles("views/master.tmpl", "views/menu.tmpl", "views/create.tmpl")
-		ctx.HTML(200, "create.tmpl", gin.H{})
+		session := sessions.Default(ctx)
+		flash := session.Flashes()
+		session.Save()
+
+		ctx.HTML(200, "create.tmpl", gin.H{
+			"flash": flash,
+		})
+	})
+	app.POST("create", func(ctx *gin.Context) {
+		err := ctx.Request.ParseForm()
+		session := sessions.Default(ctx)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		url := ctx.Request.PostForm["url"]
+		slug := RandString(6)
+
+		con, cancle := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancle()
+
+		_, err = db.ExecContext(con, "INSERT INTO urls(from_url,to_url) VALUES(?, ?)", "/r/"+slug, url[0])
+		if err != nil {
+			log.Fatalf("Something went wrong %v \n", err)
+			ctx.Error(err)
+		}
+		session.AddFlash("http://localhost:8000/r/" + slug)
+		session.Save()
+
+		ctx.Redirect(302, "/create")
 	})
 
 	app.Run(":8000")

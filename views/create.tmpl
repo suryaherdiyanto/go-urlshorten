@@ -1,13 +1,21 @@
 {{template "master" .}}
 
 {{define "content"}}
-	<form action="">
-		<div class="mb-3">
-			<label for="url">Enter your URL:</label>
-			<input id="url" type="text" name="url" class="form-control" palceholder="https://example.com">
-		</div>
-		<div class="mb-3">
-			<button class="btn btn-primary">Generate Shorten</button>
-		</div>
-	</form>
+	<div>
+		{{if gt (len .flash) 1}}
+			<div class="alert alert-success fade show" role="alert">
+				<strong>Here is the url: </strong> {{index .flash 0}}
+			</div>
+		{{end}}
+
+		<form action="/create" method="POST">
+			<div class="mb-3">
+				<label for="url">Enter your URL:</label>
+				<input id="url" type="text" name="url" class="form-control" palceholder="https://example.com">
+			</div>
+			<div class="mb-3">
+				<button class="btn btn-primary">Generate Shorten</button>
+			</div>
+		</form>
+	</div>
 {{end}}
