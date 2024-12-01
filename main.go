@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"html/template"
 	"log"
 	"math/rand"
 	"time"
@@ -32,8 +33,15 @@ func RandString(length int) string {
 
 }
 
+func Add(i int, num int) int {
+	return i + num
+}
+
 func main() {
 	app := gin.Default()
+	app.SetFuncMap(template.FuncMap{
+		"add": Add,
+	})
 
 	store := cookie.NewStore([]byte("examplekey"))
 	app.Use(sessions.Sessions("examplesession", store))

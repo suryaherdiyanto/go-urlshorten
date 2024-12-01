@@ -7,14 +7,18 @@
 			<th>FROM URL</th>
 			<th>TO URL</th>
 			<th>Hit Count</th>
+			<th>Action</th>
 		</thead>
 		<tbody>
-			{{ range .urls}}
+			{{ range $i, $url := .urls}}
 			<tr>
-				<td>{{.Id}}</td>
-				<td>{{.FromURL}}</td>
-				<td>{{.ToURL}}</td>
-				<td>{{.HitCount}}</td>
+				<td>{{add $i 1}}</td>
+				<td>{{$url.FromURL}}</td>
+				<td>{{$url.ToURL}}</td>
+				<td>{{$url.HitCount}}</td>
+				<td>
+					<a data-url="/delete{{$url.Id}}" class="text-danger" href="#">Delete</a>
+				</td>
 			</tr>
 			{{end}}
 		</tbody>
