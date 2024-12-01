@@ -2,7 +2,7 @@
 
 {{define "content"}}
 	<div>
-		{{if gt (len .flash) 1}}
+		{{if gt (len .flash) 0}}
 			<div class="alert alert-success fade show" role="alert">
 				<strong>Here is the url: </strong> {{index .flash 0}}
 			</div>

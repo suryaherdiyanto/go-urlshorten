@@ -1,31 +1,44 @@
 {{template "master" .}}
 
 {{define "content"}}
-	{{if gt (len .flash) 1}}
+	{{if gt (len .flash) 0}}
 		<div class="alert alert-success fade show" role="alert">
 			{{index .flash 0}}
 		</div>
 	{{end}}
-	<table class="table table-bordered table-hovered">
-		<thead>
-			<th>ID</th>
-			<th>FROM URL</th>
-			<th>TO URL</th>
-			<th>Hit Count</th>
-			<th>Action</th>
-		</thead>
-		<tbody>
-			{{ range $i, $url := .urls}}
-			<tr>
-				<td>{{add $i 1}}</td>
-				<td>{{$url.FromURL}}</td>
-				<td>{{$url.ToURL}}</td>
-				<td>{{$url.HitCount}}</td>
-				<td>
-					<a data-url="/delete/{{$url.Id}}" class="text-danger" href="#">Delete</a>
-				</td>
-			</tr>
-			{{end}}
-		</tbody>
-	</table>
+	<div x-data="{
+			onDelete() {
+				if (!confirm('Delete this url')) {
+					return;
+				}
+
+				let form = document.getElementById('deleteForm');
+				form.setAttribute('action', this.$event.target.getAttribute('data-url'));
+				form.submit()
+			}
+		}">
+		<table class="table table-bordered table-hovered">
+			<thead>
+				<th>ID</th>
+				<th>FROM URL</th>
+				<th>TO URL</th>
+				<th>Hit Count</th>
+				<th>Action</th>
+			</thead>
+			<tbody>
+				{{ range $i, $url := .urls}}
+				<tr>
+					<td>{{add $i 1}}</td>
+					<td>{{$url.FromURL}}</td>
+					<td>{{$url.ToURL}}</td>
+					<td>{{$url.HitCount}}</td>
+					<td>
+						<a @click.prevent="onDelete" data-url="/delete/{{$url.Id}}" class="btn-delete text-danger" href="#">Delete</a>
+					</td>
+				</tr>
+				{{end}}
+			</tbody>
+		</table>
+		<form id="deleteForm" action="" method="POST"></form>
+	</div>
 {{end}}

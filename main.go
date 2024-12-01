@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"html/template"
 	"log"
 	"math/rand"
@@ -51,6 +52,7 @@ func main() {
 		app.LoadHTMLFiles("views/master.tmpl", "views/menu.tmpl", "views/home.tmpl")
 		session := sessions.Default(ctx)
 		flash := session.Flashes()
+		session.Save()
 
 		urls := []URL{}
 		db.Select(&urls, "SELECT * FROM urls")
@@ -88,10 +90,54 @@ func main() {
 			log.Fatalf("Something went wrong %v \n", err)
 			ctx.Error(err)
 		}
-		session.AddFlash("http://localhost:8000/r/" + slug)
+		session.AddFlash("http://localhost:3000/r/" + slug)
 		session.Save()
 
 		ctx.Redirect(302, "/create")
+	})
+	app.GET("/r/:slug", func(ctx *gin.Context) {
+		var url URL
+
+		con, cancle := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancle()
+
+		err := db.GetContext(con, &url, "SELECT * FROM urls where from_url like ? LIMIT 1", "%"+ctx.Param("slug"))
+
+		if err != nil {
+			logEr := fmt.Sprintf("%v", err)
+			fmt.Println(logEr)
+			ctx.String(404, logEr)
+		}
+
+		_, err = db.ExecContext(con, "UPDATE urls set hit_count = ? where id = ?", url.HitCount+1, url.Id)
+
+		if err != nil {
+			logEr := fmt.Sprintf("%v", err)
+			fmt.Println(logEr)
+			ctx.String(500, logEr)
+		}
+
+		ctx.Redirect(302, url.ToURL)
+	})
+	app.POST("/delete/:id", func(ctx *gin.Context) {
+		id := ctx.Param("id")
+		session := sessions.Default(ctx)
+
+		con, cancle := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancle()
+
+		_, err := db.ExecContext(con, "DELETE FROM urls WHERE id = ?", id)
+		if err != nil {
+			logEr := fmt.Sprintf("%v", err)
+			fmt.Println(logEr)
+			ctx.String(500, logEr)
+		}
+
+		session.AddFlash("Delete successfully!")
+		session.Save()
+
+		ctx.Redirect(302, "/")
+
 	})
 
 	app.Run(":8000")
