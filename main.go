@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"log"
 	"math/rand"
+	"os"
 	"strconv"
 
 	"github.com/gin-contrib/sessions"
@@ -19,6 +20,11 @@ type URL struct {
 	FromURL  string `db:"from_url"`
 	ToURL    string `db:"to_url"`
 	HitCount int    `db:"hit_count"`
+}
+
+type App struct {
+	Gin *gin.Engine
+	Db  *database.Database
 }
 
 type FormRequest struct {
@@ -50,24 +56,58 @@ func AppendError(bags map[string][]string, field string, message string) {
 	}
 }
 
-func main() {
-	app := gin.Default()
-	app.SetFuncMap(template.FuncMap{
+func NewApp() *App {
+	dbengine, ok := os.LookupEnv("DATABASE")
+	if !ok {
+		dbengine = "mysql"
+	}
+
+	dburl, ok := os.LookupEnv("DATABASE_URL")
+	if !ok {
+		dburl = "root:@tcp(127.0.0.1)/"
+	}
+
+	return &App{
+		Gin: gin.Default(),
+		Db:  database.New(dbengine, dburl),
+	}
+}
+
+func (app *App) Run() {
+	port, ok := os.LookupEnv("APP_PORT")
+	if !ok {
+		port = ":8000"
+	}
+
+	app.Gin.Run(port)
+}
+
+func (app *App) Boot() {
+	appkey, ok := os.LookupEnv("APP_KEY")
+	if !ok {
+		appkey = "somerandomkey"
+	}
+
+	app.Gin.SetFuncMap(template.FuncMap{
 		"add": Add,
 	})
+	store := cookie.NewStore([]byte(appkey))
+	app.Gin.Use(sessions.Sessions("_gin_session_", store))
+}
 
-	store := cookie.NewStore([]byte("examplekey"))
-	app.Use(sessions.Sessions("examplesession", store))
-	db := database.New("mysql", "root:root@tcp(127.0.0.1)/urlshorten")
+func main() {
+	app := NewApp()
+	app.Boot()
+	gi := app.Gin
 
-	app.GET("/", func(ctx *gin.Context) {
-		app.LoadHTMLFiles("views/master.tmpl", "views/menu.tmpl", "views/home.tmpl")
+	gi.GET("/", func(ctx *gin.Context) {
+		gi.LoadHTMLFiles("views/master.tmpl", "views/menu.tmpl", "views/home.tmpl")
 		session := sessions.Default(ctx)
 		flash := session.Flashes()
 		session.Save()
 
 		urls := []URL{}
-		err, _ := db.All(&urls, "urls", "*")
+		err, _ := app.Db.All(&urls, "urls", "*")
 		if err != nil {
 			ctx.String(500, fmt.Sprintf("Something went wrong: %v", err))
 			return
@@ -78,8 +118,8 @@ func main() {
 			"flash": flash,
 		})
 	})
-	app.GET("create", func(ctx *gin.Context) {
-		app.LoadHTMLFiles("views/master.tmpl", "views/menu.tmpl", "views/create.tmpl")
+	gi.GET("create", func(ctx *gin.Context) {
+		gi.LoadHTMLFiles("views/master.tmpl", "views/menu.tmpl", "views/create.tmpl")
 		session := sessions.Default(ctx)
 		flash := session.Flashes()
 		session.Save()
@@ -88,7 +128,7 @@ func main() {
 			"flash": flash,
 		})
 	})
-	app.POST("create", func(ctx *gin.Context) {
+	gi.POST("create", func(ctx *gin.Context) {
 		err := ctx.Request.ParseForm()
 		session := sessions.Default(ctx)
 
@@ -114,7 +154,7 @@ func main() {
 
 				AppendError(errorBags, validationErr.Field(), message)
 			}
-			app.LoadHTMLFiles("views/master.tmpl", "views/menu.tmpl", "views/create.tmpl")
+			gi.LoadHTMLFiles("views/create.tmpl")
 
 			ctx.HTML(400, "create.tmpl", gin.H{
 				"errors": errorBags,
@@ -125,7 +165,7 @@ func main() {
 
 		slug := RandString(6)
 
-		err, _ = db.Create(map[string]interface{}{"from_url": "r/" + slug, "to_url": data.URL}, "urls")
+		err, _ = app.Db.Create(map[string]interface{}{"from_url": "r/" + slug, "to_url": data.URL}, "urls")
 		if err != nil {
 			log.Fatalf("Something went wrong %v \n", err)
 			ctx.Error(err)
@@ -136,10 +176,10 @@ func main() {
 
 		ctx.Redirect(302, "/create")
 	})
-	app.GET("/r/:slug", func(ctx *gin.Context) {
+	gi.GET("/r/:slug", func(ctx *gin.Context) {
 		var url URL
 
-		err := db.GetRaw("SELECT * FROM urls where from_url like ? LIMIT 1", &url, "%"+ctx.Param("slug"))
+		err := app.Db.GetRaw("SELECT * FROM urls where from_url like ? LIMIT 1", &url, "%"+ctx.Param("slug"))
 
 		if err != nil {
 			logEr := fmt.Sprintf("%v", err)
@@ -148,7 +188,7 @@ func main() {
 			return
 		}
 
-		err, _ = db.Update(map[string]interface{}{"hit_count": url.HitCount + 1}, "urls", url.Id)
+		err, _ = app.Db.Update(map[string]interface{}{"hit_count": url.HitCount + 1}, "urls", url.Id)
 
 		if err != nil {
 			logEr := fmt.Sprintf("%v", err)
@@ -158,7 +198,7 @@ func main() {
 
 		ctx.Redirect(302, url.ToURL)
 	})
-	app.POST("/delete/:id", func(ctx *gin.Context) {
+	gi.POST("/delete/:id", func(ctx *gin.Context) {
 		id, err := strconv.Atoi(ctx.Param("id"))
 		session := sessions.Default(ctx)
 
@@ -166,7 +206,7 @@ func main() {
 			ctx.String(404, "Resource not found")
 		}
 
-		err, _ = db.Delete("urls", id)
+		err, _ = app.Db.Delete("urls", id)
 		if err != nil {
 			logEr := fmt.Sprintf("%v", err)
 			fmt.Println(logEr)
@@ -180,5 +220,6 @@ func main() {
 
 	})
 
-	app.Run(":8000")
+	app.Run()
+
 }
