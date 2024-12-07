@@ -145,7 +145,7 @@ func main() {
 		if err != nil {
 			logEr := fmt.Sprintf("%v", err)
 			fmt.Println(logEr)
-			ctx.String(404, logEr)
+			ctx.String(404, fmt.Sprintf("Could not find that slug: %s", ctx.Param("slug")))
 		}
 
 		_, err = db.ExecContext(con, "UPDATE urls set hit_count = ? where id = ?", url.HitCount+1, url.Id)
@@ -175,7 +175,7 @@ func main() {
 		session.AddFlash("Delete successfully!")
 		session.Save()
 
-		ctx.Redirect(302, "/")
+		ctx.Redirect(302, ctx.Request.Referer())
 
 	})
 
