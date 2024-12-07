@@ -1,12 +1,11 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"html/template"
 	"log"
 	"math/rand"
-	"time"
+	"strconv"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -59,7 +58,7 @@ func main() {
 
 	store := cookie.NewStore([]byte("examplekey"))
 	app.Use(sessions.Sessions("examplesession", store))
-	db := database.New("root:root@tcp(127.0.0.1)/urlshorten")
+	db := database.New("mysql", "root:root@tcp(127.0.0.1)/urlshorten")
 
 	app.GET("/", func(ctx *gin.Context) {
 		app.LoadHTMLFiles("views/master.tmpl", "views/menu.tmpl", "views/home.tmpl")
@@ -68,7 +67,12 @@ func main() {
 		session.Save()
 
 		urls := []URL{}
-		db.Select(&urls, "SELECT * FROM urls")
+		err, _ := db.All(&urls, "urls", "*")
+		if err != nil {
+			ctx.String(500, fmt.Sprintf("Something went wrong: %v", err))
+			return
+		}
+
 		ctx.HTML(200, "home.tmpl", gin.H{
 			"urls":  &urls,
 			"flash": flash,
@@ -121,13 +125,11 @@ func main() {
 
 		slug := RandString(6)
 
-		con, cancle := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancle()
-
-		_, err = db.ExecContext(con, "INSERT INTO urls(from_url,to_url) VALUES(?, ?)", "/r/"+slug, data.URL)
+		err, _ = db.Create(map[string]interface{}{"from_url": "r/" + slug, "to_url": data.URL}, "urls")
 		if err != nil {
 			log.Fatalf("Something went wrong %v \n", err)
 			ctx.Error(err)
+			ctx.String(500, "Something went wrong %v \n", err)
 		}
 		session.AddFlash("http://localhost:3000/r/" + slug)
 		session.Save()
@@ -137,18 +139,16 @@ func main() {
 	app.GET("/r/:slug", func(ctx *gin.Context) {
 		var url URL
 
-		con, cancle := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancle()
-
-		err := db.GetContext(con, &url, "SELECT * FROM urls where from_url like ? LIMIT 1", "%"+ctx.Param("slug"))
+		err := db.GetRaw("SELECT * FROM urls where from_url like ? LIMIT 1", &url, "%"+ctx.Param("slug"))
 
 		if err != nil {
 			logEr := fmt.Sprintf("%v", err)
 			fmt.Println(logEr)
 			ctx.String(404, fmt.Sprintf("Could not find that slug: %s", ctx.Param("slug")))
+			return
 		}
 
-		_, err = db.ExecContext(con, "UPDATE urls set hit_count = ? where id = ?", url.HitCount+1, url.Id)
+		err, _ = db.Update(map[string]interface{}{"hit_count": url.HitCount + 1}, "urls", url.Id)
 
 		if err != nil {
 			logEr := fmt.Sprintf("%v", err)
@@ -159,13 +159,14 @@ func main() {
 		ctx.Redirect(302, url.ToURL)
 	})
 	app.POST("/delete/:id", func(ctx *gin.Context) {
-		id := ctx.Param("id")
+		id, err := strconv.Atoi(ctx.Param("id"))
 		session := sessions.Default(ctx)
 
-		con, cancle := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancle()
+		if err != nil {
+			ctx.String(404, "Resource not found")
+		}
 
-		_, err := db.ExecContext(con, "DELETE FROM urls WHERE id = ?", id)
+		err, _ = db.Delete("urls", id)
 		if err != nil {
 			logEr := fmt.Sprintf("%v", err)
 			fmt.Println(logEr)
