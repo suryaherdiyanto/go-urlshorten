@@ -118,7 +118,7 @@ func (h *Handler) Store(ctx *gin.Context) {
 
 			AppendError(errorBags, validationErr.Field(), message)
 		}
-		h.Gin.LoadHTMLFiles("views/create.tmpl")
+		h.Gin.LoadHTMLFiles("views/master.tmpl", "views/menu.tmpl", "views/create.tmpl")
 
 		ctx.HTML(400, "create.tmpl", gin.H{
 			"errors": errorBags,
