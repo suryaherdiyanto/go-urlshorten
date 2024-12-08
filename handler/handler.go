@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
 	"strconv"
 
 	"github.com/gin-contrib/sessions"
@@ -134,7 +135,12 @@ func (h *Handler) Store(ctx *gin.Context) {
 		ctx.Error(err)
 		ctx.String(500, "Something went wrong %v \n", err)
 	}
-	session.AddFlash("http://localhost:3000/r/" + slug)
+	url, ok := os.LookupEnv("APP_URL")
+	if !ok {
+		url = "http://localhost:3000"
+	}
+
+	session.AddFlash(url + "/r/" + slug)
 	session.Save()
 
 	ctx.Redirect(302, "/create")
