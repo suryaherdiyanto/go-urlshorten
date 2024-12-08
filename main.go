@@ -1,7 +1,10 @@
 package main
 
 import (
+	"os"
+
 	"github.com/go-urlshorten/app"
+	"github.com/go-urlshorten/database"
 	"github.com/go-urlshorten/handler"
 )
 
@@ -17,17 +20,20 @@ type URL struct {
 }
 
 func main() {
-	app := app.NewApp()
+	dbengine, ok := os.LookupEnv("DATABASE")
+	if !ok {
+		dbengine = "mysql"
+	}
+
+	dburl, ok := os.LookupEnv("DATABASE_URL")
+	if !ok {
+		dburl = "root:@tcp(127.0.0.1)/"
+	}
+
+	app := app.NewApp(database.New(dbengine, dburl))
 	app.Boot()
-	gi := app.Gin
-
-	h := handler.NewHandler(app)
-
-	gi.GET("/", h.Home)
-	gi.GET("create", h.Create)
-	gi.POST("create", h.Store)
-	gi.GET("/r/:slug", h.Redirect)
-	gi.POST("/delete/:id", h.Delete)
+	h := handler.NewHandler(app.Db, app.Gin)
+	h.SetupRouter()
 
 	app.Run()
 

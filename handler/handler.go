@@ -9,11 +9,12 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
-	"github.com/go-urlshorten/app"
+	"github.com/go-urlshorten/database"
 )
 
 type Handler struct {
-	App *app.App
+	DB  *database.Database
+	Gin *gin.Engine
 }
 
 type URL struct {
@@ -23,8 +24,8 @@ type URL struct {
 	HitCount int    `db:"hit_count"`
 }
 
-func NewHandler(app *app.App) *Handler {
-	return &Handler{App: app}
+func NewHandler(db *database.Database, gin *gin.Engine) *Handler {
+	return &Handler{DB: db, Gin: gin}
 }
 
 type FormRequest struct {
@@ -52,14 +53,22 @@ func AppendError(bags map[string][]string, field string, message string) {
 	}
 }
 
+func (h *Handler) SetupRouter() {
+	h.Gin.GET("/", h.Home)
+	h.Gin.GET("create", h.Create)
+	h.Gin.POST("create", h.Store)
+	h.Gin.GET("/r/:slug", h.Redirect)
+	h.Gin.POST("/delete/:id", h.Delete)
+}
+
 func (h *Handler) Home(ctx *gin.Context) {
-	h.App.Gin.LoadHTMLFiles("views/master.tmpl", "views/menu.tmpl", "views/home.tmpl")
+	h.Gin.LoadHTMLFiles("views/master.tmpl", "views/menu.tmpl", "views/home.tmpl")
 	session := sessions.Default(ctx)
 	flash := session.Flashes()
 	session.Save()
 
 	urls := []URL{}
-	err, _ := h.App.Db.All(&urls, "urls", "*")
+	err, _ := h.DB.All(&urls, "urls", "*")
 	if err != nil {
 		ctx.String(500, fmt.Sprintf("Something went wrong: %v", err))
 		return
@@ -72,7 +81,7 @@ func (h *Handler) Home(ctx *gin.Context) {
 }
 
 func (h *Handler) Create(ctx *gin.Context) {
-	h.App.Gin.LoadHTMLFiles("views/master.tmpl", "views/menu.tmpl", "views/create.tmpl")
+	h.Gin.LoadHTMLFiles("views/master.tmpl", "views/menu.tmpl", "views/create.tmpl")
 	session := sessions.Default(ctx)
 	flash := session.Flashes()
 	session.Save()
@@ -108,7 +117,7 @@ func (h *Handler) Store(ctx *gin.Context) {
 
 			AppendError(errorBags, validationErr.Field(), message)
 		}
-		h.App.Gin.LoadHTMLFiles("views/create.tmpl")
+		h.Gin.LoadHTMLFiles("views/create.tmpl")
 
 		ctx.HTML(400, "create.tmpl", gin.H{
 			"errors": errorBags,
@@ -119,7 +128,7 @@ func (h *Handler) Store(ctx *gin.Context) {
 
 	slug := RandString(6)
 
-	err, _ = h.App.Db.Create(map[string]interface{}{"from_url": "r/" + slug, "to_url": data.URL}, "urls")
+	err, _ = h.DB.Create(map[string]interface{}{"from_url": "r/" + slug, "to_url": data.URL}, "urls")
 	if err != nil {
 		log.Fatalf("Something went wrong %v \n", err)
 		ctx.Error(err)
@@ -134,7 +143,7 @@ func (h *Handler) Store(ctx *gin.Context) {
 func (h *Handler) Redirect(ctx *gin.Context) {
 	var url URL
 
-	err := h.App.Db.GetRaw("SELECT * FROM urls where from_url like ? LIMIT 1", &url, "%"+ctx.Param("slug"))
+	err := h.DB.GetRaw("SELECT * FROM urls where from_url like ? LIMIT 1", &url, "%"+ctx.Param("slug"))
 
 	if err != nil {
 		logEr := fmt.Sprintf("%v", err)
@@ -143,7 +152,7 @@ func (h *Handler) Redirect(ctx *gin.Context) {
 		return
 	}
 
-	err, _ = h.App.Db.Update(map[string]interface{}{"hit_count": url.HitCount + 1}, "urls", url.Id)
+	err, _ = h.DB.Update(map[string]interface{}{"hit_count": url.HitCount + 1}, "urls", url.Id)
 
 	if err != nil {
 		logEr := fmt.Sprintf("%v", err)
@@ -162,7 +171,7 @@ func (h *Handler) Delete(ctx *gin.Context) {
 		ctx.String(404, "Resource not found")
 	}
 
-	err, _ = h.App.Db.Delete("urls", id)
+	err, _ = h.DB.Delete("urls", id)
 	if err != nil {
 		logEr := fmt.Sprintf("%v", err)
 		fmt.Println(logEr)

@@ -19,20 +19,11 @@ func Add(i int, num int) int {
 	return i + num
 }
 
-func NewApp() *App {
-	dbengine, ok := os.LookupEnv("DATABASE")
-	if !ok {
-		dbengine = "mysql"
-	}
-
-	dburl, ok := os.LookupEnv("DATABASE_URL")
-	if !ok {
-		dburl = "root:@tcp(127.0.0.1)/"
-	}
+func NewApp(db *database.Database) *App {
 
 	return &App{
 		Gin: gin.Default(),
-		Db:  database.New(dbengine, dburl),
+		Db:  db,
 	}
 }
 
