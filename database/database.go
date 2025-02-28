@@ -83,16 +83,8 @@ func (db *Database) Update(data map[string]interface{}, table string, id int) (e
 	ctx, cancel := createContext()
 	defer cancel()
 
-	var fields []string
-	var values []interface{}
-	for k := range data {
-		fields = append(fields, k+" = ?")
-		values = append(values, data[k])
-	}
-	values = append(values, id)
-
-	q := fmt.Sprintf("Update %s set %s WHERE id = ?", table, strings.Join(fields, ","))
-	_, err := db.sql.ExecContext(ctx, q, values...)
+	q := fmt.Sprintf("Update %s set hit_count = $1 WHERE id = $2", table)
+	_, err := db.sql.ExecContext(ctx, q, data["hit_count"], id)
 
 	if err != nil {
 		return err, false
@@ -105,7 +97,7 @@ func (db *Database) Delete(table string, id int) (error, bool) {
 	ctx, cancel := createContext()
 	defer cancel()
 
-	_, err := db.sql.ExecContext(ctx, fmt.Sprintf("DELETE FROM %s WHERE id = ?", table), id)
+	_, err := db.sql.ExecContext(ctx, fmt.Sprintf("DELETE FROM %s WHERE id = $1", table), id)
 
 	if err != nil {
 		return err, false

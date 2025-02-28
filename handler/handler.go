@@ -149,12 +149,12 @@ func (h *Handler) Store(ctx *gin.Context) {
 func (h *Handler) Redirect(ctx *gin.Context) {
 	var url URL
 
-	err := h.DB.GetRaw("SELECT * FROM urls where from_url like ? LIMIT 1", &url, "%"+ctx.Param("slug"))
+	err := h.DB.GetRaw("SELECT * FROM urls where from_url like $1 LIMIT 1", &url, "%"+ctx.Param("slug"))
 
 	if err != nil {
 		logEr := fmt.Sprintf("%v", err)
 		fmt.Println(logEr)
-		ctx.String(404, fmt.Sprintf("Could not find that slug: %s", ctx.Param("slug")))
+		ctx.String(404, fmt.Sprintf("Could not find that slug: %s. Exception: %v", ctx.Param("slug"), logEr))
 		return
 	}
 
