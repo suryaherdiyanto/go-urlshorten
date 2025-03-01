@@ -12,10 +12,8 @@ RUN go mod download && go mod verify
 
 RUN go install -tags 'postgres,mysql' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 
-USER 1000:1000
-
 COPY . .
 
 RUN go build -o ./bin/main .
 
-ENTRYPOINT ["/app/bin/main"]
+ENTRYPOINT ["./bin/main"]
