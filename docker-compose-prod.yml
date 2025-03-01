@@ -5,8 +5,6 @@ services:
       dockerfile: Dockerfile.prod
     ports:
       - "80:${APP_PORT}"
-    volumes:
-      - .:/app
     depends_on:
       - db
     restart: always

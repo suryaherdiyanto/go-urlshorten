@@ -4,8 +4,6 @@ RUN mkdir /.cache && chmod 777 /.cache
 
 WORKDIR /app
 
-RUN mkdir bin && chmod 777 bin
-
 COPY go.mod go.sum .
 
 RUN go mod download && go mod verify
@@ -16,4 +14,4 @@ COPY . .
 
 RUN go build -o ./bin/main .
 
-ENTRYPOINT ["./bin/main"]
+ENTRYPOINT ["/app/bin/main"]
